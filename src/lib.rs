@@ -65,13 +65,14 @@ pub enum ValueType {
     BitMask,
 }
 
+/// Contains PVL right-hand values and flags
 #[derive(Debug, Clone)]
 pub struct Value {
     value_raw: String,
     value_type: ValueType,
 }
 
-#[macro_export]
+/// Formats an error object to a string via {:?} Debug derived method
 macro_rules! t {
     ($error_message:expr) => {
         format!("{:?}", $error_message)
@@ -161,6 +162,7 @@ impl Value {
     }
 }
 
+/// Represents the basic KEY = VALUE pair in a PVL file
 #[derive(Debug, Clone)]
 pub struct KeyValuePair {
     pub key: Symbol,
@@ -174,6 +176,7 @@ pub trait PropertyGrouping {
     fn type_of(&self) -> Symbol;
 }
 
+/// Represents the PVL GROUP...END_GROUP structure
 #[derive(Debug)]
 pub struct Group {
     pub name: String,
@@ -194,6 +197,7 @@ impl PropertyGrouping for Group {
     }
 }
 
+/// Represents the PVL OBJECT...END_OBJECT structure
 #[derive(Debug)]
 pub struct Object {
     pub name: String,
@@ -245,6 +249,8 @@ impl PvlReader {
         }
     }
 
+    /// Peeks at the character at the current caret position plus n. Returns Error::Eof if the file
+    /// ends before that point
     pub fn char_at_pos_plus_n(&self, indx: usize) -> Result<char, Error> {
         if self.pos + indx >= self.content.len() {
             Err(Error::Eof)
@@ -598,6 +604,7 @@ impl PvlReader {
     }
 }
 
+/// The primary user-facing PVL structure
 pub struct Pvl {
     pub properties: Vec<KeyValuePair>,
     pub groups: Vec<Group>,
@@ -605,10 +612,50 @@ pub struct Pvl {
 }
 
 impl Pvl {
+    /// Loads and parses a PVL file from the requested file path
+    /// # Example
+    /// ```
+    /// use pvl::{Pvl, print_kvp,print_grouping};
+    /// use std::path::Path;
+    ///
+    /// let p = "tests/testdata/msl/mahli/3423MH0002970011201599C00_DRCX.LBL";
+    /// if let Ok(pvl) = Pvl::load(Path::new(p)) {
+    ///     pvl.properties.into_iter().for_each(|p| {
+    ///     print_kvp(&p, false);
+    ///     });
+    ///     pvl.groups.into_iter().for_each(|g| {
+    ///         print_grouping(&g);
+    ///     });
+    ///     pvl.objects.into_iter().for_each(|g| {
+    ///         print_grouping(&g);
+    ///     });
+    /// }
+    ///
+    /// ```
     pub fn load(file_path: &Path) -> Result<Self> {
         Pvl::from_string(&fs::read_to_string(file_path).expect("Failed to load PVL label"))
     }
 
+    /// Parses the contents of a supplied PVL-formatted String
+    /// # Example
+    /// ```
+    /// use pvl::{Pvl,print_kvp, print_grouping};
+    /// use std::fs;
+    ///
+    /// let file_path = "tests/testdata/msl/mahli/3423MH0002970011201599C00_DRCX.LBL";
+    /// let s = fs::read_to_string(file_path).expect("Failed to load PVL label");
+    /// if let Ok(pvl) = Pvl::from_string(&s) {
+    ///     pvl.properties.into_iter().for_each(|p| {
+    ///     print_kvp(&p, false);
+    ///     });
+    ///     pvl.groups.into_iter().for_each(|g| {
+    ///         print_grouping(&g);
+    ///     });
+    ///     pvl.objects.into_iter().for_each(|g| {
+    ///         print_grouping(&g);
+    ///     });
+    /// }
+    /// ```
     pub fn from_string(content: &str) -> Result<Self> {
         let mut pvl = Pvl {
             properties: vec![],
@@ -642,8 +689,8 @@ impl Pvl {
     }
 }
 
-#[allow(dead_code)]
-fn print_kvp(kvp: &KeyValuePair, indent: bool) {
+/// Simple utility function to print a KeyValuePair to stdout
+pub fn print_kvp(kvp: &KeyValuePair, indent: bool) {
     if indent {
         print!("    ");
     }
@@ -658,8 +705,9 @@ fn print_kvp(kvp: &KeyValuePair, indent: bool) {
     };
 }
 
-#[allow(dead_code)]
-fn print_grouping<G: PropertyGrouping>(g: &G) {
+/// Simple utility function to print a GROUP/OBJECT property grouping
+/// to stdout
+pub fn print_grouping<G: PropertyGrouping>(g: &G) {
     println!("***************************************");
     println!("GROUPING: {}", g.name());
     println!("    TYPE: {:?}", g.type_of());
@@ -669,17 +717,19 @@ fn print_grouping<G: PropertyGrouping>(g: &G) {
     println!("    ** END GROUPING");
 }
 
-// pub fn main() {
-//     let p = "tests/testdata/msl/mahli/3423MH0002970011201599C00_DRCX.LBL";
-//     if let Ok(pvl) = Pvl::load(Path::new(p)) {
-//         pvl.properties.into_iter().for_each(|p| {
-//             print_kvp(&p, false);
-//         });
-//         pvl.groups.into_iter().for_each(|g| {
-//             print_grouping(&g);
-//         });
-//         pvl.objects.into_iter().for_each(|g| {
-//             print_grouping(&g);
-//         });
-//     }
-// }
+//let p = "tests/testdata/msl/mahli/3423MH0002970011201599C00_DRCX.LBL";
+
+/// Parses and prints a PVL file to stdout. Nominally for validation/compliance.
+pub fn parse_and_print_pvl(file_path: &str) {
+    if let Ok(pvl) = Pvl::load(Path::new(file_path)) {
+        pvl.properties.into_iter().for_each(|p| {
+            print_kvp(&p, false);
+        });
+        pvl.groups.into_iter().for_each(|g| {
+            print_grouping(&g);
+        });
+        pvl.objects.into_iter().for_each(|g| {
+            print_grouping(&g);
+        });
+    }
+}

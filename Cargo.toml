@@ -3,12 +3,10 @@ name = "pvl"
 version = "0.1.0"
 edition = "2021"
 
-# [lib]
-# name = "pvl"
+[lib]
+name = "pvl"
 
 [dependencies]
-serde = "1.0.163"
 anyhow = "1.0.65"
-glob = "0.3.0"
 regex = "1.7.0"
 lazy_static = "1.4.0"

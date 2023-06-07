@@ -79,7 +79,40 @@ lazy_static! {
     static ref BITMASK_DETERMINATE: Regex = Regex::new("^[1-8]*#[0-1]+#$").unwrap();
 }
 
+// I think you'll get a lot of value out of this sorta thing for parsing libraries.
+/// Implements the miscellanous parsing functions for Value
+#[macro_export]
+macro_rules! impl_parse_fn {
+    ($fn_name:ident, $type:ty, $value_type:expr) => {
+        // the $values just get swapped in.
+        pub fn $fn_name(&self) -> Result<$type, Error> {
+            if self.value_type != $value_type {
+                return Err(Error::InvalidType);
+            }
+            match self.value_raw.parse::<$type>() {
+                Ok(v) => Ok(v),
+                Err(_) => Err(Error::ValueTypeParseError),
+            }
+        }
+    };
+}
+
 impl Value {
+    impl_parse_fn!(parse_f32, f32, ValueType::Float);
+    impl_parse_fn!(parse_f64, f64, ValueType::Float);
+    impl_parse_fn!(parse_u8, u8, ValueType::Integer);
+    impl_parse_fn!(parse_u16, u16, ValueType::Integer);
+    impl_parse_fn!(parse_u32, u32, ValueType::Integer);
+    impl_parse_fn!(parse_u64, u64, ValueType::Integer);
+    impl_parse_fn!(parse_i8, i8, ValueType::Integer);
+    impl_parse_fn!(parse_i16, i16, ValueType::Integer);
+    impl_parse_fn!(parse_i32, i32, ValueType::Integer);
+    impl_parse_fn!(parse_i64, i64, ValueType::Integer);
+    impl_parse_fn!(parse_bool, bool, ValueType::Bool);
+    impl_parse_fn!(parse_string, String, ValueType::String);
+    impl_parse_fn!(parse_flag, String, ValueType::Flag);
+    // parse_array requires more macro expertise than I can provide if you want the one, and only one macro to cover everything.
+
     pub fn new(value_raw: &str) -> Self {
         Value {
             value_raw: value_raw.to_owned(),
@@ -107,150 +140,11 @@ impl Value {
         }
     }
 
-    pub fn parse_f32(&self) -> Result<f32, Error> {
-        if self.value_type != ValueType::Float {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<f32>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_f64(&self) -> Result<f64, Error> {
-        if self.value_type != ValueType::Float {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<f64>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_u8(&self) -> Result<u8, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<u8>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_u16(&self) -> Result<u16, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<u16>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_u32(&self) -> Result<u32, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<u32>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_u64(&self) -> Result<u64, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<u64>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_i8(&self) -> Result<i8, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<i8>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_i16(&self) -> Result<i16, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<i16>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_i32(&self) -> Result<i32, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<i32>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_i64(&self) -> Result<i64, Error> {
-        if self.value_type != ValueType::Integer {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<i64>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
-    pub fn parse_bool(&self) -> Result<bool, Error> {
-        if self.value_type != ValueType::Bool {
-            Err(Error::InvalidType)
-        } else {
-            match self.value_raw.parse::<bool>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
-            }
-        }
-    }
-
     pub fn parse_array(&self) -> Result<Vec<Value>, Error> {
         if self.value_type != ValueType::Array {
             Err(Error::InvalidType)
         } else {
             Ok(self.value_raw.split(",").map(|v| Value::new(&v)).collect())
-        }
-    }
-
-    /// Simply returns the string value
-    pub fn parse_string(&self) -> Result<String, Error> {
-        if self.value_type != ValueType::String {
-            Err(Error::InvalidType)
-        } else {
-            Ok(self.value_raw.to_owned())
-        }
-    }
-
-    /// Simply returns the string value. For now.
-    pub fn parse_flag(&self) -> Result<String, Error> {
-        if self.value_type != ValueType::Flag {
-            Err(Error::InvalidType)
-        } else {
-            Ok(self.value_raw.to_owned())
         }
     }
 }

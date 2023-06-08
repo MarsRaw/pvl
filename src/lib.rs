@@ -14,6 +14,7 @@ pub enum Error {
     Programming(String),
     InvalidType,
     ValueTypeParseError,
+    InvalidEncoding(String),
 }
 
 /// PVL Symbol types
@@ -632,8 +633,11 @@ impl Pvl {
     /// }
     ///
     /// ```
-    pub fn load(file_path: &Path) -> Result<Self> {
-        Pvl::from_string(&fs::read_to_string(file_path).expect("Failed to load PVL label"))
+    pub fn load(file_path: &Path) -> Result<Self, Error> {
+        match fs::read_to_string(file_path) {
+            Ok(s) => Pvl::from_string(&s),
+            Err(why) => Err(Error::InvalidEncoding(t!(why))),
+        }
     }
 
     /// Parses the contents of a supplied PVL-formatted String
@@ -656,7 +660,7 @@ impl Pvl {
     ///     });
     /// }
     /// ```
-    pub fn from_string(content: &str) -> Result<Self> {
+    pub fn from_string(content: &str) -> Result<Self, Error> {
         let mut pvl = Pvl {
             properties: vec![],
             groups: vec![],

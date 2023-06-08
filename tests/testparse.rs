@@ -3,12 +3,27 @@ use std::path::Path;
 
 /// These tests are inexhustive checks to make sure the files basically load.
 #[test]
-fn test_msl_navcam_pvl_loaded() {
+fn test_msl_navcam_pvl_loaded_lbl() {
     // Navcam
     assert!(Pvl::load(Path::new(
         "tests/testdata/msl/navcam/NRB_701384494RAD_F0933408NCAM00200M1.LBL"
     ))
     .is_ok());
+}
+
+#[test]
+fn test_msl_navcam_pvl_loaded_img() {
+    // Navcam
+    // For now we cannot read binary VICAR files, though they tend to have the label embedded at the top.
+    // From experience, it is generally better to go by the detatched label, when available due to
+    // some PDS archiving procedures.
+    match Pvl::load(Path::new(
+        "tests/testdata/msl/navcam/NRB_701384494RAD_F0933408NCAM00200M1.IMG",
+    )) {
+        Ok(_) => panic!("Should have failed!"),
+        Err(Error::InvalidEncoding(_)) => {}
+        Err(_) => panic!("Invalid error!"),
+    };
 }
 
 #[test]

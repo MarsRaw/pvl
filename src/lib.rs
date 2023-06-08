@@ -85,9 +85,9 @@ lazy_static! {
     static ref STRING_DETERMINATE: Regex = Regex::new("^\".*\"$").unwrap();
     static ref ARRAY_DETERMINATE: Regex = Regex::new("^\\(.*\\)$").unwrap();
     static ref FLOAT_DETERMINATE: Regex = Regex::new("^-*[0-9]+\\.[0-9][ ]*").unwrap();
-    static ref INTEGER_DETERMINATE: Regex = Regex::new("^-*[0-9]+[^#]+[ ]*").unwrap();
+    static ref INTEGER_DETERMINATE: Regex = Regex::new("^[+-]*[0-9]+[^#a-zA-Z]*[ ]*").unwrap();
     static ref FLAG_DETERMINATE: Regex = Regex::new("^[a-zA-Z_]+[a-zA-Z0-9]+$").unwrap();
-    static ref BITMASK_DETERMINATE: Regex = Regex::new("^[1-8]*#[0-1]+#$").unwrap();
+    static ref BITMASK_DETERMINATE: Regex = Regex::new("^[1-8]*#+[0-1]+#+$").unwrap();
 }
 const LINE_CONTINUATION_PREFIX: &str = "                                     ";
 
@@ -98,12 +98,15 @@ macro_rules! impl_parse_fn {
     ($fn_name:ident, $type:ty, $value_type:expr) => {
         // the $values just get swapped in.
         pub fn $fn_name(&self) -> Result<$type, Error> {
-            if self.value_type != $value_type {
-                return Err(Error::InvalidType);
-            }
-            match self.value_raw.parse::<$type>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err(Error::ValueTypeParseError),
+            // I'm gonna allow parsing if the type is undetermined. A type being undetermined is my problem, but
+            // the user will have the option (and risk) of parsing it
+            if self.value_type != ValueType::Undetermined && self.value_type != $value_type {
+                Err(Error::InvalidType)
+            } else {
+                match self.value_raw.parse::<$type>() {
+                    Ok(v) => Ok(v),
+                    Err(_) => Err(Error::ValueTypeParseError),
+                }
             }
         }
     };
@@ -116,12 +119,12 @@ impl Value {
     impl_parse_fn!(parse_u16, u16, ValueType::Integer);
     impl_parse_fn!(parse_u32, u32, ValueType::Integer);
     impl_parse_fn!(parse_u64, u64, ValueType::Integer);
+    impl_parse_fn!(parse_usize, usize, ValueType::Integer);
     impl_parse_fn!(parse_i8, i8, ValueType::Integer);
     impl_parse_fn!(parse_i16, i16, ValueType::Integer);
     impl_parse_fn!(parse_i32, i32, ValueType::Integer);
     impl_parse_fn!(parse_i64, i64, ValueType::Integer);
     impl_parse_fn!(parse_bool, bool, ValueType::Bool);
-    impl_parse_fn!(parse_string, String, ValueType::String);
     impl_parse_fn!(parse_flag, String, ValueType::Flag);
 
     /// Constructs a new Value object and determines type of provided raw data
@@ -142,14 +145,24 @@ impl Value {
             ValueType::Array
         } else if FLOAT_DETERMINATE.is_match(value_raw) {
             ValueType::Float
+        } else if BITMASK_DETERMINATE.is_match(value_raw) {
+            ValueType::BitMask
         } else if INTEGER_DETERMINATE.is_match(value_raw) {
             ValueType::Integer
         } else if FLAG_DETERMINATE.is_match(value_raw) {
             ValueType::Flag
-        } else if BITMASK_DETERMINATE.is_match(value_raw) {
-            ValueType::BitMask
         } else {
             ValueType::Undetermined
+        }
+    }
+
+    pub fn parse_string(&self) -> Result<String, Error> {
+        // I'm gonna allow parsing if the type is undetermined. A type being undetermined is my problem, but
+        // the user will have the option (and risk) of parsing it
+        if self.value_type != ValueType::Undetermined && self.value_type != ValueType::String {
+            Err(Error::InvalidType)
+        } else {
+            Ok(self.value_raw.replace("\"", "").to_owned())
         }
     }
 
@@ -158,7 +171,10 @@ impl Value {
         if self.value_type != ValueType::Array {
             Err(Error::InvalidType)
         } else {
-            Ok(self.value_raw.split(',').map(Value::new).collect())
+            Ok(self.value_raw[1..(self.value_raw.len() - 1)]
+                .split(',')
+                .map(Value::new)
+                .collect())
         }
     }
 }
@@ -175,6 +191,42 @@ pub trait PropertyGrouping {
     fn name(&self) -> String;
     fn properties(&self) -> Vec<KeyValuePair>;
     fn type_of(&self) -> Symbol;
+    fn get_property(&self, name: &str) -> Option<KeyValuePair>;
+    fn has_property(&self, name: &str) -> bool;
+}
+
+macro_rules! get_property {
+    () => {
+        fn get_property(&self, name: &str) -> Option<KeyValuePair> {
+            Some(
+                self.properties
+                    .iter()
+                    .filter(|p| match &p.key {
+                        Symbol::Key(n) | Symbol::Pointer(n) => n == name,
+                        _ => false,
+                    })
+                    .next()
+                    .unwrap()
+                    .to_owned(),
+            )
+        }
+    };
+}
+
+macro_rules! has_property {
+    () => {
+        fn has_property(&self, name: &str) -> bool {
+            self.properties
+                .iter()
+                .filter(|p| match &p.key {
+                    Symbol::Key(n) | Symbol::Pointer(n) => n == name,
+                    _ => false,
+                })
+                .collect::<Vec<&KeyValuePair>>()
+                .len()
+                > 0
+        }
+    };
 }
 
 /// Represents the PVL GROUP...END_GROUP structure
@@ -196,6 +248,9 @@ impl PropertyGrouping for Group {
     fn type_of(&self) -> Symbol {
         Symbol::Group
     }
+
+    get_property! {}
+    has_property! {}
 }
 
 /// Represents the PVL OBJECT...END_OBJECT structure
@@ -217,6 +272,9 @@ impl PropertyGrouping for Object {
     fn type_of(&self) -> Symbol {
         Symbol::Object
     }
+
+    get_property! {}
+    has_property! {}
 }
 
 /// Main PVL parsing engine
@@ -690,6 +748,44 @@ impl Pvl {
             }
         }
         Ok(pvl)
+    }
+
+    pub fn has_property(&self, name: &str) -> bool {
+        self.properties
+            .iter()
+            .filter(|p| match &p.key {
+                Symbol::Key(n) | Symbol::Pointer(n) => n == name,
+                _ => false,
+            })
+            .collect::<Vec<&KeyValuePair>>()
+            .len()
+            > 0
+    }
+
+    pub fn get_property(&self, name: &str) -> Option<KeyValuePair> {
+        if self.has_property(name) {
+            Some(
+                self.properties
+                    .iter()
+                    .filter(|p| match &p.key {
+                        Symbol::Key(n) | Symbol::Pointer(n) => n == name,
+                        _ => false,
+                    })
+                    .next()
+                    .unwrap()
+                    .to_owned(),
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn get_group(&self, name: &str) -> Option<&Group> {
+        self.groups.iter().filter(|g| g.name() == name).next()
+    }
+
+    pub fn get_object(&self, name: &str) -> Option<&Object> {
+        self.objects.iter().filter(|o| o.name() == name).next()
     }
 }
 

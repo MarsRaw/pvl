@@ -20,6 +20,12 @@ fn test_msl_navcam_pvl_loaded_img() {
     assert!(p.is_ok());
     let lbl = p.unwrap();
     assert!(lbl.has_property("MISSION_PHASE_NAME"));
+
+    let prop = lbl.get_property("MISSION_PHASE_NAME").unwrap();
+    assert_eq!(
+        prop.value.parse_string().unwrap(),
+        "EXTENDED SURFACE MISSION"
+    );
 }
 
 #[test]

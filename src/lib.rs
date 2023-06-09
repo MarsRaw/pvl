@@ -700,10 +700,6 @@ impl Pvl {
             },
             Err(why) => Err(Error::General(t!(why))),
         }
-        // match fs::read_to_string(file_path) {
-        //     Ok(s) => Pvl::from_string(&s),
-        //     Err(why) => Err(Error::InvalidEncoding(t!(why))),
-        // }
     }
 
     /// Parses the contents of a supplied PVL-formatted String

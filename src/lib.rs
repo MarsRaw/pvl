@@ -1,6 +1,6 @@
 use anyhow::Result;
 use regex::Regex;
-use std::{fs, path::Path};
+use std::{borrow::Cow, fs, path::Path};
 
 #[macro_use]
 extern crate lazy_static;
@@ -15,6 +15,7 @@ pub enum Error {
     InvalidType,
     ValueTypeParseError,
     InvalidEncoding(String),
+    General(String),
 }
 
 /// PVL Symbol types
@@ -692,10 +693,17 @@ impl Pvl {
     ///
     /// ```
     pub fn load(file_path: &Path) -> Result<Self, Error> {
-        match fs::read_to_string(file_path) {
-            Ok(s) => Pvl::from_string(&s),
-            Err(why) => Err(Error::InvalidEncoding(t!(why))),
+        match fs::read(file_path) {
+            Ok(b) => match String::from_utf8_lossy(&b) {
+                Cow::Borrowed(s) => Pvl::from_string(&s),
+                Cow::Owned(s) => Pvl::from_string(&s),
+            },
+            Err(why) => Err(Error::General(t!(why))),
         }
+        // match fs::read_to_string(file_path) {
+        //     Ok(s) => Pvl::from_string(&s),
+        //     Err(why) => Err(Error::InvalidEncoding(t!(why))),
+        // }
     }
 
     /// Parses the contents of a supplied PVL-formatted String

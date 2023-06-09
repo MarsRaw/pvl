@@ -13,17 +13,13 @@ fn test_msl_navcam_pvl_loaded_lbl() {
 
 #[test]
 fn test_msl_navcam_pvl_loaded_img() {
-    // Navcam
-    // For now we cannot read binary VICAR files, though they tend to have the label embedded at the top.
-    // From experience, it is generally better to go by the detatched label, when available due to
-    // some PDS archiving procedures.
-    match Pvl::load(Path::new(
+    let p = Pvl::load(Path::new(
         "tests/testdata/msl/navcam/NRB_701384494RAD_F0933408NCAM00200M1.IMG",
-    )) {
-        Ok(_) => panic!("Should have failed!"),
-        Err(Error::InvalidEncoding(_)) => {}
-        Err(_) => panic!("Invalid error!"),
-    };
+    ));
+    // Navcam
+    assert!(p.is_ok());
+    let lbl = p.unwrap();
+    assert!(lbl.has_property("MISSION_PHASE_NAME"));
 }
 
 #[test]

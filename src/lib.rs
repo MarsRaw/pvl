@@ -568,6 +568,24 @@ impl PvlReader {
         }
     }
 
+    pub fn jump_to_next_line(&mut self) -> Result<(), Error> {
+        while self.pos <= self.content.len() {
+            if self.char_at(self.pos).unwrap() == '\n' {
+                self.next_char()?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn rewind_to_line_beginning(&mut self) -> Result<(), Error> {
+        while self.pos != 0 && !self.is_at_line_start()? {
+            self.pos -= 1;
+        }
+        Ok(())
+    }
+
     pub fn read_key_value_pair_raw(&mut self) -> Result<KeyValuePair, Error> {
         if self.is_at_value_line_continuation().unwrap() {
             Err(Error::Syntax(
@@ -579,7 +597,7 @@ impl PvlReader {
             ))
         } else {
             let mut value_string = String::new();
-            let key_res = self.read_symbol();
+            let key_res = self.read_symbol().unwrap();
             value_string += self.read_remaining_line().unwrap().as_ref();
 
             self.next_char()?;
@@ -591,9 +609,8 @@ impl PvlReader {
                     break;
                 }
             }
-
             Ok(KeyValuePair {
-                key: key_res.unwrap(),
+                key: key_res,
                 value: Value::new(&value_string),
             })
         }
@@ -748,7 +765,7 @@ impl Pvl {
                 }
             }
             if !reader.is_eof() && !reader.is_at_end() {
-                reader.next_char().unwrap();
+                reader.jump_to_next_line()?;
             }
         }
         Ok(pvl)
